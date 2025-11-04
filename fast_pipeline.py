@@ -239,6 +239,8 @@ def main():
                        help='Start fresh')
     parser.add_argument('--min-confidence', type=float, default=0.5,
                        help='Minimum confidence for hazardous classification (default: 0.5)')
+    parser.add_argument('--no-confirm', action='store_true',
+                       help='Skip confirmation prompt (for automated execution)')
 
     args = parser.parse_args()
 
@@ -288,7 +290,10 @@ def main():
     if len(cameras_to_process) > 200:
         print(f"\n⚠️  Processing {len(cameras_to_process)} cameras")
 
-    input("\nPress Enter to start or Ctrl+C to cancel...")
+    if not args.no_confirm:
+        input("\nPress Enter to start or Ctrl+C to cancel...")
+    else:
+        print("\n▶ Starting automated execution...")
 
     # Process
     results = pipeline.process_cameras_parallel(

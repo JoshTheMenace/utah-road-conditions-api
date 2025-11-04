@@ -1,0 +1,14 @@
+[Unit]
+Description=Run UDOT Camera Detection Every 16 Minutes
+Requires=udot-detection.service
+
+[Timer]
+# Run every 16 minutes
+OnBootSec=1min
+OnUnitActiveSec=16min
+
+# If missed (VPS reboot), run immediately
+Persistent=true
+
+[Install]
+WantedBy=timers.target
