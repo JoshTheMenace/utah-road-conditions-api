@@ -26,15 +26,22 @@ git clone <your-repo-url> utah-road-conditions-api
 cd utah-road-conditions-api
 ```
 
-### 2. Install Dependencies
+### 2. Set Up Virtual Environment (Recommended)
 
 ```bash
-# Install Python packages
-pip3 install -r requirements.txt
+# Create virtual environment
+python3 -m venv venv
 
-# Install gunicorn (production WSGI server)
-pip3 install gunicorn
+# Activate virtual environment
+source venv/bin/activate
+
+# Install dependencies in venv
+pip install -r requirements.txt
+
+# Gunicorn will be installed automatically by deploy.sh
 ```
+
+**Note:** The deployment script automatically detects and uses your `venv` directory if it exists. The systemd services will use the venv's Python and packages.
 
 ### 3. Deploy Services
 
@@ -64,6 +71,23 @@ systemctl status udot-detection.timer
 systemctl list-timers udot-detection.timer
 ```
 
+## Virtual Environment Details
+
+The systemd services are configured to use your virtual environment automatically:
+
+- **API Service**: Uses `/path/to/project/venv/bin/gunicorn`
+- **Detection Service**: Uses `/path/to/project/venv/bin/python3`
+
+This means:
+- All packages installed in your venv are available to the services
+- No need to activate the venv manually - systemd uses the full path
+- Your system Python remains unaffected
+
+The `deploy.sh` script automatically:
+1. Detects if a `venv` directory exists
+2. Updates service files with the correct venv paths
+3. Falls back to system Python if no venv is found
+
 ## Manual Setup (Alternative)
 
 If you prefer manual setup:
@@ -73,7 +97,9 @@ If you prefer manual setup:
 Edit `systemd/udot-api.service` and `systemd/udot-detection.service`:
 - Change `WorkingDirectory` to your actual path (e.g., `/root/utah-road-conditions-api`)
 - Update `User` if not running as root
-- Adjust paths in `ExecStart` if needed
+- Update paths in `ExecStart` to use your venv:
+  - For API: `/your/path/venv/bin/gunicorn`
+  - For detection: `/your/path/venv/bin/python3`
 
 ### 2. Copy Service Files
 

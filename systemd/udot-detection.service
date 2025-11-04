@@ -6,11 +6,11 @@ After=network.target
 Type=oneshot
 User=root
 WorkingDirectory=/root/utah-road-conditions-api
-Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 
 # Run detection script with all cameras, no confirmation
 # Adjust --max-cameras and --workers based on your VPS resources
-ExecStart=/usr/bin/python3 fast_pipeline.py \
+# Use virtual environment's Python
+ExecStart=/root/utah-road-conditions-api/venv/bin/python3 fast_pipeline.py \
     --max-cameras 900 \
     --workers 4 \
     --highways-only \
