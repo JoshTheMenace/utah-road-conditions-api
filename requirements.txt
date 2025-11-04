@@ -1,0 +1,20 @@
+# Fast Pipeline Requirements (VPS Optimized)
+# Minimal dependencies for low-resource environments
+
+# Core
+transformers>=4.30.0
+torch>=2.0.0
+pillow>=9.0.0
+requests>=2.28.0
+
+# For map generation (optional, can do locally)
+folium>=0.14.0
+scipy>=1.10.0
+
+# No segmentation models needed!
+# Total download: ~800 MB (vs 1.5 GB for full pipeline)
+
+# API Server Dependencies
+flask==3.0.0
+flask-cors==4.0.0
+gunicorn==21.2.0  # Production WSGI server
