@@ -20,31 +20,48 @@ PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "Project directory: $PROJECT_DIR"
 echo ""
 
+# Check for virtual environment
+VENV_DIR="$PROJECT_DIR/venv"
+if [ -d "$VENV_DIR" ]; then
+    echo "✓ Found virtual environment at: $VENV_DIR"
+    PYTHON_PATH="$VENV_DIR/bin/python3"
+    GUNICORN_PATH="$VENV_DIR/bin/gunicorn"
+    USE_VENV=true
+else
+    echo "⚠ No virtual environment found, using system Python"
+    PYTHON_PATH=$(which python3)
+    GUNICORN_PATH=$(which gunicorn || echo "/usr/local/bin/gunicorn")
+    USE_VENV=false
+fi
+
+echo "   Python path: $PYTHON_PATH"
+echo "   Gunicorn path: $GUNICORN_PATH"
+echo ""
+
 # Update service files with correct paths
 echo "1. Updating service files with correct paths..."
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$PROJECT_DIR|g" systemd/udot-api.service
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$PROJECT_DIR|g" systemd/udot-detection.service
 
-# Find Python 3 path
-PYTHON_PATH=$(which python3)
-echo "   Python path: $PYTHON_PATH"
-
-# Find gunicorn path
-GUNICORN_PATH=$(which gunicorn || echo "/usr/local/bin/gunicorn")
-echo "   Gunicorn path: $GUNICORN_PATH"
-
-# Update ExecStart paths
-sed -i "s|ExecStart=/usr/bin/python3|ExecStart=$PYTHON_PATH|g" systemd/udot-detection.service
-sed -i "s|ExecStart=/usr/local/bin/gunicorn|ExecStart=$GUNICORN_PATH|g" systemd/udot-api.service
+# Update ExecStart paths with proper escaping for sed
+sed -i "s|ExecStart=.*/bin/python3 fast_pipeline.py|ExecStart=$PYTHON_PATH fast_pipeline.py|g" systemd/udot-detection.service
+sed -i "s|ExecStart=.*/bin/gunicorn|ExecStart=$GUNICORN_PATH|g" systemd/udot-api.service
 
 echo "   ✓ Paths updated"
 echo ""
 
 # Install dependencies if needed
 echo "2. Checking dependencies..."
-if ! command -v gunicorn &> /dev/null; then
-    echo "   Installing gunicorn..."
-    pip3 install gunicorn
+if [ "$USE_VENV" = true ]; then
+    if [ ! -f "$GUNICORN_PATH" ]; then
+        echo "   Installing gunicorn in venv..."
+        "$VENV_DIR/bin/pip" install gunicorn
+    fi
+else
+    if ! command -v gunicorn &> /dev/null; then
+        echo "   Installing gunicorn..."
+        pip3 install gunicorn
+    fi
 fi
 echo "   ✓ Dependencies ready"
 echo ""
