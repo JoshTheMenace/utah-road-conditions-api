@@ -1,0 +1,23 @@
+[Unit]
+Description=UDOT Road Conditions API Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/utah-road-conditions-api
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# Run gunicorn with 4 workers
+ExecStart=/usr/local/bin/gunicorn -w 4 -b 0.0.0.0:5000 api_server:app
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/udot-api.log
+StandardError=append:/var/log/udot-api-error.log
+
+[Install]
+WantedBy=multi-user.target
