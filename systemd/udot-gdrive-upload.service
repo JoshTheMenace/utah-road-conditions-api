@@ -8,12 +8,11 @@ User=root
 WorkingDirectory=/home/josh/udot
 
 # Upload compressed images to Google Drive
-# Uses service account authentication (no OAuth required)
+# Uses OAuth token (generated on local machine, copied to VPS)
 # Compresses images with quality=85 (good balance of size/quality)
 # Organizes in folders by date: UDOT-Road-Conditions/YYYY-MM-DD/
 ExecStart=/home/josh/udot/venv/bin/python3 gdrive_uploader.py \
-    --service-account \
-    --credentials credentials.json \
+    --token token.json \
     --image-dir data/fast_classified \
     --quality 85 \
     --max-size 1920 \
