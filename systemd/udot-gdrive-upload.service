@@ -1,0 +1,27 @@
+[Unit]
+Description=UDOT Road Conditions - Google Drive Upload
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/home/josh/udot
+
+# Upload compressed images to Google Drive
+# Uses service account authentication (no OAuth required)
+# Compresses images with quality=85 (good balance of size/quality)
+# Organizes in folders by date: UDOT-Road-Conditions/YYYY-MM-DD/
+ExecStart=/home/josh/udot/venv/bin/python3 gdrive_uploader.py \
+    --service-account \
+    --credentials credentials.json \
+    --image-dir data/fast_classified \
+    --quality 85 \
+    --max-size 1920 \
+    --folder UDOT-Road-Conditions
+
+# Logging
+StandardOutput=append:/var/log/udot-gdrive-upload.log
+StandardError=append:/var/log/udot-gdrive-upload-error.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Upload UDOT Images to Google Drive Every Hour
+Requires=udot-gdrive-upload.service
+
+[Timer]
+# Run every hour (on the hour)
+OnCalendar=hourly
+
+# First run 5 minutes after boot (gives time for detection to run)
+OnBootSec=5min
+
+# If missed (VPS reboot), run immediately
+Persistent=true
+
+[Install]
+WantedBy=timers.target
