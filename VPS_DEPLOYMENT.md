@@ -4,9 +4,10 @@ This guide explains how to set up automated 24/7 operation on your Ubuntu VPS.
 
 ## Overview
 
-The system consists of two components:
+The system consists of three components:
 1. **API Server** - Flask/Gunicorn server running continuously on port 5000
 2. **Detection Script** - Runs every 16 minutes to fetch and classify camera images
+3. **Google Drive Upload** - Runs every hour to backup compressed images to Google Drive
 
 ## Architecture
 
@@ -57,7 +58,23 @@ That's it! The script will:
 - Enable detection timer
 - Run initial detection
 
-### 4. Verify Deployment
+### 4. Set Up Google Drive (Optional)
+
+To automatically backup images to Google Drive with compression:
+
+```bash
+# See detailed setup guide
+cat GOOGLE_DRIVE_SETUP.md
+
+# Or skip to quick steps:
+# 1. Create service account in Google Cloud Console
+# 2. Download credentials.json to project directory
+# 3. Share Google Drive folder with service account email
+# 4. Deploy the upload service
+sudo ./deploy.sh
+```
+
+### 5. Verify Deployment
 
 ```bash
 # Check API is running
@@ -66,9 +83,10 @@ curl http://localhost:5000
 # Check services status
 systemctl status udot-api
 systemctl status udot-detection.timer
+systemctl status udot-gdrive-upload.timer  # If Google Drive is set up
 
-# See when next detection will run
-systemctl list-timers udot-detection.timer
+# See when next runs will occur
+systemctl list-timers
 ```
 
 ## Virtual Environment Details
@@ -107,6 +125,8 @@ Edit `systemd/udot-api.service` and `systemd/udot-detection.service`:
 sudo cp systemd/udot-api.service /etc/systemd/system/
 sudo cp systemd/udot-detection.service /etc/systemd/system/
 sudo cp systemd/udot-detection.timer /etc/systemd/system/
+sudo cp systemd/udot-gdrive-upload.service /etc/systemd/system/  # Optional
+sudo cp systemd/udot-gdrive-upload.timer /etc/systemd/system/    # Optional
 ```
 
 ### 3. Enable and Start
@@ -125,6 +145,10 @@ sudo systemctl start udot-detection.timer
 
 # Run detection once to populate initial data
 sudo systemctl start udot-detection.service
+
+# Optional: Enable Google Drive upload timer
+sudo systemctl enable udot-gdrive-upload.timer
+sudo systemctl start udot-gdrive-upload.timer
 ```
 
 ## Configuration
@@ -168,6 +192,25 @@ sudo systemctl daemon-reload
 sudo systemctl restart udot-detection.timer
 ```
 
+### Configure Google Drive Upload (Optional)
+
+See `GOOGLE_DRIVE_SETUP.md` for detailed instructions.
+
+Quick configuration of compression settings:
+
+```bash
+# Edit service file
+sudo nano /etc/systemd/system/udot-gdrive-upload.service
+
+# Adjust compression settings in ExecStart line:
+# --quality 85      # JPEG quality (1-100, 85 is good balance)
+# --max-size 1920   # Max dimension in pixels
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl restart udot-gdrive-upload.timer
+```
+
 ### Change API Port
 
 Edit `systemd/udot-api.service`:
@@ -194,12 +237,17 @@ journalctl -u udot-api -f
 # Detection logs (live)
 journalctl -u udot-detection -f
 
+# Google Drive upload logs (live)
+journalctl -u udot-gdrive-upload -f
+
 # Or from log files
 tail -f /var/log/udot-api.log
 tail -f /var/log/udot-detection.log
+tail -f /var/log/udot-gdrive-upload.log
 
 # View last 100 lines
 journalctl -u udot-api -n 100
+journalctl -u udot-gdrive-upload -n 100
 ```
 
 ### Check Status
@@ -208,12 +256,16 @@ journalctl -u udot-api -n 100
 # Check if services are running
 systemctl status udot-api
 systemctl status udot-detection.timer
+systemctl status udot-gdrive-upload.timer  # If enabled
 
 # See timer schedule
-systemctl list-timers udot-detection.timer
+systemctl list-timers
 
 # Check last detection run
 systemctl status udot-detection
+
+# Check last Google Drive upload
+systemctl status udot-gdrive-upload
 
 # Check if API is responding
 curl http://localhost:5000/api/stats
@@ -234,13 +286,18 @@ sudo systemctl start udot-detection.timer
 # Run detection immediately (one-time)
 sudo systemctl start udot-detection
 
+# Run Google Drive upload immediately
+sudo systemctl start udot-gdrive-upload
+
 # Disable auto-start on boot
 sudo systemctl disable udot-api
 sudo systemctl disable udot-detection.timer
+sudo systemctl disable udot-gdrive-upload.timer  # If enabled
 
 # Re-enable auto-start
 sudo systemctl enable udot-api
 sudo systemctl enable udot-detection.timer
+sudo systemctl enable udot-gdrive-upload.timer  # If enabled
 ```
 
 ## Troubleshooting
@@ -360,6 +417,42 @@ systemctl status udot-api
 systemctl list-timers udot-detection.timer
 ```
 
+## Google Drive Upload
+
+The system can automatically backup classified images to Google Drive every hour with compression. This is optional but recommended for:
+
+- **Backup**: Keep copies of images in cloud storage
+- **Compression**: Reduces file size by ~60-70% with minimal quality loss
+- **Organization**: Images organized by date in folders
+
+### Key Features
+
+- **Compression**: JPEG quality 85 (excellent balance)
+- **Resizing**: Max 1920px (keeps most images unchanged)
+- **Smart upload**: Skips already uploaded images
+- **Organized folders**: `UDOT-Road-Conditions/YYYY-MM-DD/`
+- **Hourly schedule**: Runs every hour automatically
+
+### Setup
+
+See `GOOGLE_DRIVE_SETUP.md` for complete instructions. Quick version:
+
+1. Create service account in Google Cloud Console
+2. Download credentials.json
+3. Share Google Drive folder with service account
+4. Enable the upload timer
+
+### Storage Requirements
+
+With default compression (quality=85, max_size=1920):
+
+- Average image: 200-400 KB
+- Daily uploads: ~100-200 MB (for 500 cameras)
+- Monthly: ~3-6 GB
+- Yearly: ~36-72 GB
+
+Google Drive free tier (15 GB) is enough for 2-5 months of images.
+
 ## Uninstall
 
 To completely remove:
@@ -368,13 +461,17 @@ To completely remove:
 # Stop and disable services
 sudo systemctl stop udot-api
 sudo systemctl stop udot-detection.timer
+sudo systemctl stop udot-gdrive-upload.timer  # If enabled
 sudo systemctl disable udot-api
 sudo systemctl disable udot-detection.timer
+sudo systemctl disable udot-gdrive-upload.timer  # If enabled
 
 # Remove service files
 sudo rm /etc/systemd/system/udot-api.service
 sudo rm /etc/systemd/system/udot-detection.service
 sudo rm /etc/systemd/system/udot-detection.timer
+sudo rm /etc/systemd/system/udot-gdrive-upload.service  # If exists
+sudo rm /etc/systemd/system/udot-gdrive-upload.timer    # If exists
 
 # Reload systemd
 sudo systemctl daemon-reload

@@ -7,6 +7,8 @@ This directory contains systemd service files for running the UDOT road conditio
 - `udot-api.service` - Flask API server (runs continuously)
 - `udot-detection.service` - Detection script (triggered by timer)
 - `udot-detection.timer` - Timer to run detection every 16 minutes
+- `udot-gdrive-upload.service` - Google Drive upload with compression (triggered by timer)
+- `udot-gdrive-upload.timer` - Timer to upload images every hour
 
 ## Virtual Environment Setup
 
