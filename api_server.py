@@ -4,12 +4,13 @@ Lightweight Flask API server for VPS
 Serves classification results JSON with CORS headers
 """
 
-from flask import Flask, jsonify, send_file
+from flask import Flask, jsonify, send_file, request
 from flask_cors import CORS
 from pathlib import Path
 import json
 from datetime import datetime
 import os
+from route_planner import RoutePlanner, geocode_address
 
 app = Flask(__name__)
 
@@ -18,6 +19,9 @@ CORS(app)
 
 # Path to results file
 RESULTS_FILE = Path("data/fast_classified/classification_results.json")
+
+# Initialize route planner
+route_planner = RoutePlanner(str(RESULTS_FILE))
 
 @app.route("/")
 def home():
@@ -129,6 +133,104 @@ def get_camera(camera_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/route", methods=["POST"])
+def plan_route():
+    """
+    Plan route with snow/hazard detection
+
+    Request body (JSON):
+        {
+            "origin": "address or 'lon,lat'",
+            "destination": "address or 'lon,lat'",
+            "alternatives": 3  (optional, default 3)
+        }
+
+    Example:
+        {
+            "origin": "Salt Lake City, UT",
+            "destination": "Park City, UT",
+            "alternatives": 3
+        }
+
+    Or with coordinates:
+        {
+            "origin": "-111.8910,40.7608",
+            "destination": "-111.4980,40.6461"
+        }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+
+        origin_str = data.get('origin')
+        dest_str = data.get('destination')
+        alternatives = data.get('alternatives', 3)
+
+        if not origin_str or not dest_str:
+            return jsonify({
+                "error": "Missing required fields",
+                "message": "Both 'origin' and 'destination' are required"
+            }), 400
+
+        # Parse origin (either address or "lon,lat")
+        try:
+            origin_parts = origin_str.split(',')
+            if len(origin_parts) == 2:
+                # Try to parse as coordinates
+                origin = (float(origin_parts[0]), float(origin_parts[1]))
+            else:
+                # Treat as address and geocode
+                origin = geocode_address(origin_str)
+                if not origin:
+                    return jsonify({
+                        "error": "Could not geocode origin",
+                        "message": f"Address '{origin_str}' not found"
+                    }), 400
+        except ValueError:
+            # Not coordinates, try geocoding
+            origin = geocode_address(origin_str)
+            if not origin:
+                return jsonify({
+                    "error": "Could not geocode origin",
+                    "message": f"Address '{origin_str}' not found"
+                }), 400
+
+        # Parse destination (either address or "lon,lat")
+        try:
+            dest_parts = dest_str.split(',')
+            if len(dest_parts) == 2:
+                # Try to parse as coordinates
+                destination = (float(dest_parts[0]), float(dest_parts[1]))
+            else:
+                # Treat as address and geocode
+                destination = geocode_address(dest_str)
+                if not destination:
+                    return jsonify({
+                        "error": "Could not geocode destination",
+                        "message": f"Address '{dest_str}' not found"
+                    }), 400
+        except ValueError:
+            # Not coordinates, try geocoding
+            destination = geocode_address(dest_str)
+            if not destination:
+                return jsonify({
+                    "error": "Could not geocode destination",
+                    "message": f"Address '{dest_str}' not found"
+                }), 400
+
+        # Plan the route
+        result = route_planner.plan_route(origin, destination, alternatives)
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e)
+        }), 500
+
 if __name__ == "__main__":
     # Run on all interfaces, port 5000
     # Use gunicorn in production: gunicorn -w 4 -b 0.0.0.0:5000 api_server:app
@@ -139,10 +241,11 @@ if __name__ == "__main__":
     print(f"File exists: {RESULTS_FILE.exists()}")
     print()
     print("Endpoints:")
-    print("  GET /                  - Health check")
-    print("  GET /api/conditions    - All camera data + stats")
-    print("  GET /api/stats         - Statistics only (faster)")
-    print("  GET /api/camera/<id>   - Specific camera")
+    print("  GET  /                  - Health check")
+    print("  GET  /api/conditions    - All camera data + stats")
+    print("  GET  /api/stats         - Statistics only (faster)")
+    print("  GET  /api/camera/<id>   - Specific camera")
+    print("  POST /api/route         - Route planning with hazard detection")
     print()
     print("Starting server on http://0.0.0.0:5000")
     print("Press Ctrl+C to stop")
