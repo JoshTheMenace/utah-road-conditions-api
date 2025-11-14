@@ -10,10 +10,12 @@ WorkingDirectory=/home/josh/udot
 # Run detection script with all cameras, no confirmation
 # Adjust --max-cameras and --workers based on your VPS resources
 # Use virtual environment's Python
+# --no-resume: Re-download and classify fresh images each run (don't skip already processed)
 ExecStart=/home/josh/udot/venv/bin/python3 fast_pipeline.py \
     --max-cameras 2000 \
     --workers 4 \
     --no-confirm \
+    --no-resume \
     --min-confidence 0.5
 
 # Logging
