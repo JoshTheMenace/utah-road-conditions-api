@@ -5,7 +5,7 @@ Requires=udot-detection.service
 [Timer]
 # Run every 16 minutes
 OnBootSec=1min
-OnUnitActiveSec=16min
+OnUnitActiveSec=120min
 
 # If missed (VPS reboot), run immediately
 Persistent=true
